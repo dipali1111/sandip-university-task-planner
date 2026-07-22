@@ -9,36 +9,74 @@ $dept_id = $_SESSION['department_id'];
 
 // Common stats queries
 try {
-    // Total tasks count (role dependent)
+    // Assigned tasks count (role dependent)
     if ($role === 'registrar' || $role === 'admin') {
         $task_count_stmt = $pdo->query("SELECT COUNT(*) FROM tasks");
-        $total_tasks = $task_count_stmt->fetchColumn();
     } elseif ($role === 'dean') {
         $task_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM tasks WHERE assigner_id = ?");
         $task_count_stmt->execute([$user_id]);
-        $total_tasks = $task_count_stmt->fetchColumn();
     } else {
         $task_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM tasks WHERE assignee_id = ?");
         $task_count_stmt->execute([$user_id]);
-        $total_tasks = $task_count_stmt->fetchColumn();
     }
+    $total_tasks = $task_count_stmt->fetchColumn();
 
     // Upcoming meetings count (role dependent)
     if ($role === 'registrar' || $role === 'admin') {
         $meet_count_stmt = $pdo->query("SELECT COUNT(*) FROM meetings WHERE date_time >= NOW()");
-        $upcoming_meets = $meet_count_stmt->fetchColumn();
     } else {
         $meet_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM meetings m JOIN meeting_participants mp ON m.id = mp.meeting_id WHERE mp.user_id = ? AND m.date_time >= NOW()");
         $meet_count_stmt->execute([$user_id]);
-        $upcoming_meets = $meet_count_stmt->fetchColumn();
     }
+    $upcoming_meets = $meet_count_stmt->fetchColumn();
+
+    // Pending tasks count (role dependent)
+    if ($role === 'registrar' || $role === 'admin') {
+        $pending_tasks_count_stmt = $pdo->query("SELECT COUNT(*) FROM tasks WHERE status != 'completed'");
+        $pending_tasks_preview_stmt = $pdo->query("SELECT t.*, u.name as assignee_name FROM tasks t JOIN users u ON t.assignee_id = u.id WHERE t.status != 'completed' ORDER BY t.due_date ASC LIMIT 5");
+    } elseif ($role === 'dean') {
+        $pending_tasks_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM tasks WHERE assigner_id = ? AND status != 'completed'");
+        $pending_tasks_count_stmt->execute([$user_id]);
+        $pending_tasks_preview_stmt = $pdo->prepare("SELECT t.*, u.name as assignee_name FROM tasks t JOIN users u ON t.assignee_id = u.id WHERE t.assigner_id = ? AND t.status != 'completed' ORDER BY t.due_date ASC LIMIT 5");
+        $pending_tasks_preview_stmt->execute([$user_id]);
+    } else {
+        $pending_tasks_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM tasks WHERE assignee_id = ? AND status != 'completed'");
+        $pending_tasks_count_stmt->execute([$user_id]);
+        $pending_tasks_preview_stmt = $pdo->prepare("SELECT t.*, u.name as assigner_name FROM tasks t JOIN users u ON t.assigner_id = u.id WHERE t.assignee_id = ? AND t.status != 'completed' ORDER BY t.due_date ASC LIMIT 5");
+        $pending_tasks_preview_stmt->execute([$user_id]);
+    }
+    $pending_tasks = $pending_tasks_preview_stmt->fetchAll();
+    $pending_tasks_count = $pending_tasks_count_stmt->fetchColumn();
+
+    // Today's meetings count (role dependent)
+    if ($role === 'registrar' || $role === 'admin') {
+        $today_meets_count_stmt = $pdo->query("SELECT COUNT(*) FROM meetings WHERE DATE(date_time) = CURDATE()");
+        $today_meets_preview_stmt = $pdo->query("SELECT m.*, u.name as organizer FROM meetings m JOIN users u ON m.creator_id = u.id WHERE DATE(m.date_time) = CURDATE() ORDER BY m.date_time ASC LIMIT 5");
+    } else {
+        $today_meets_count_stmt = $pdo->prepare("SELECT COUNT(DISTINCT m.id) FROM meetings m LEFT JOIN meeting_participants mp ON m.id = mp.meeting_id WHERE (m.creator_id = ? OR mp.user_id = ?) AND DATE(m.date_time) = CURDATE()");
+        $today_meets_count_stmt->execute([$user_id, $user_id]);
+        $today_meets_preview_stmt = $pdo->prepare("SELECT DISTINCT m.*, u.name as organizer FROM meetings m LEFT JOIN meeting_participants mp ON m.id = mp.meeting_id JOIN users u ON m.creator_id = u.id WHERE (m.creator_id = ? OR mp.user_id = ?) AND DATE(m.date_time) = CURDATE() ORDER BY m.date_time ASC LIMIT 5");
+        $today_meets_preview_stmt->execute([$user_id, $user_id]);
+    }
+    $today_meetings = $today_meets_preview_stmt->fetchAll();
+    $today_meetings_count = $today_meets_count_stmt->fetchColumn();
 
     // Documents uploaded
     $doc_count_stmt = $pdo->query("SELECT COUNT(*) FROM documents");
     $total_docs = $doc_count_stmt->fetchColumn();
 
+    // Unread notifications total and preview
+    $unread_notifications_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM notifications WHERE user_id = ? AND is_read = 0");
+    $unread_notifications_count_stmt->execute([$user_id]);
+    $unread_notifications_count = $unread_notifications_count_stmt->fetchColumn();
+
+    $unread_notifications_stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? AND is_read = 0 ORDER BY created_at DESC LIMIT 5");
+    $unread_notifications_stmt->execute([$user_id]);
+    $unread_notifications = $unread_notifications_stmt->fetchAll();
+
 } catch (PDOException $e) {
-    $total_tasks = $upcoming_meets = $total_docs = 0;
+    $pending_tasks = $today_meetings = $unread_notifications = [];
+    $pending_tasks_count = $today_meetings_count = $unread_notifications_count = $total_docs = $total_tasks = $upcoming_meets = 0;
 }
 ?>
 
@@ -77,6 +115,33 @@ try {
         </div>
         <div class="stat-card">
             <div class="stat-info">
+                <h3>Pending Tasks</h3>
+                <p><?php echo $pending_tasks_count; ?></p>
+            </div>
+            <div class="stat-icon danger">
+                <i data-lucide="loader"></i>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>Today's Meetings</h3>
+                <p><?php echo $today_meetings_count; ?></p>
+            </div>
+            <div class="stat-icon warning">
+                <i data-lucide="calendar"></i>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info">
+                <h3>Unread Notifications</h3>
+                <p><?php echo $unread_notifications_count ?? 0; ?></p>
+            </div>
+            <div class="stat-icon primary">
+                <i data-lucide="bell-ring"></i>
+            </div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-info">
                 <h3>Documents Vault</h3>
                 <p><?php echo $total_docs; ?></p>
             </div>
@@ -84,18 +149,83 @@ try {
                 <i data-lucide="file-text"></i>
             </div>
         </div>
-        <div class="stat-card">
-            <div class="stat-info">
-                <h3>Alerts Pending</h3>
-                <p><?php echo $unread_count; ?></p>
-            </div>
-            <div class="stat-icon danger">
-                <i data-lucide="bell"></i>
-            </div>
-        </div>
     </div>
 
     <div class="row">
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <span>Pending Tasks</span>
+                    <a href="tasks.php" class="text-decoration-none">View all</a>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($pending_tasks)): ?>
+                        <p class="text-muted">No pending tasks at the moment.</p>
+                    <?php else: ?>
+                        <ul class="list-unstyled mb-0">
+                            <?php foreach ($pending_tasks as $task): ?>
+                                <li class="mb-3">
+                                    <strong><?php echo sanitize($task['title']); ?></strong>
+                                    <div class="text-muted small">
+                                        <?php if (isset($task['assignee_name'])): ?>Assigned to <?php echo sanitize($task['assignee_name']); ?><?php else: ?>Assigned by <?php echo sanitize($task['assigner_name']); ?><?php endif; ?>
+                                        • Due <?php echo date('d M', strtotime($task['due_date'])); ?>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <span>Today's Meetings</span>
+                    <a href="meetings.php" class="text-decoration-none">View all</a>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($today_meetings)): ?>
+                        <p class="text-muted">No meetings scheduled for today.</p>
+                    <?php else: ?>
+                        <ul class="list-unstyled mb-0">
+                            <?php foreach ($today_meetings as $meet): ?>
+                                <li class="mb-3">
+                                    <strong><?php echo sanitize($meet['title']); ?></strong>
+                                    <div class="text-muted small">
+                                        <?php echo date('h:i A', strtotime($meet['date_time'])); ?> • Organizer: <?php echo sanitize($meet['organizer']); ?>
+                                    </div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <span>Unread Notifications</span>
+                    <a href="alerts.php" class="text-decoration-none">View all</a>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($unread_notifications)): ?>
+                        <p class="text-muted">You have no unread notifications.</p>
+                    <?php else: ?>
+                        <ul class="list-unstyled mb-0">
+                            <?php foreach ($unread_notifications as $noti): ?>
+                                <li class="mb-3">
+                                    <strong><?php echo sanitize($noti['message']); ?></strong>
+                                    <div class="text-muted small"><?php echo date('d M, h:i A', strtotime($noti['created_at'])); ?></div>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
         <!-- ==================================================================
              1. ADMINISTRATOR DASHBOARD VIEW
              ================================================================== -->
