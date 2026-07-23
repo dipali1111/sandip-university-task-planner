@@ -240,6 +240,19 @@ $login_error = $_GET['error'] ?? '';
         // Initialize Calendar
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('landing-calendar');
+            var holidayEvents = [
+                { title: 'Holiday: Republic Day', start: '2026-01-26', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+                { title: 'Holiday: Maharashtra Day', start: '2026-05-01', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+                { title: 'Holiday: Independence Day', start: '2026-08-15', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+                { title: 'Holiday: Gandhi Jayanti', start: '2026-10-02', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+                { title: 'Holiday: Christmas Day', start: '2026-12-25', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } }
+            ];
+            var holidayDates = holidayEvents.map(function(event) { return event.start; });
+            var formatCalendarDate = function(date) {
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                var day = String(date.getDate()).padStart(2, '0');
+                return date.getFullYear() + '-' + month + '-' + day;
+            };
             var calendar = new FullCalendar.Calendar(calendarEl, {
                 initialView: 'dayGridMonth',
                 height: 380,
@@ -259,7 +272,17 @@ $login_error = $_GET['error'] ?? '';
                         },";
                     }
                     ?>
-                ]
+                ].concat(holidayEvents),
+                dayCellClassNames: function(info) {
+                    var classes = [];
+                    if (info.date.getDay() === 0) {
+                        classes.push('calendar-sunday');
+                    }
+                    if (holidayDates.indexOf(formatCalendarDate(info.date)) !== -1) {
+                        classes.push('calendar-holiday-day');
+                    }
+                    return classes;
+                }
             });
             calendar.render();
         });

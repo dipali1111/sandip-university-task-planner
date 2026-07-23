@@ -1045,6 +1045,22 @@ body {
     font-weight: 600;
 }
 
+.fc .calendar-sunday,
+.fc .calendar-sunday .fc-daygrid-day-number,
+.fc .calendar-sunday .fc-col-header-cell-cushion {
+    color: var(--danger) !important;
+}
+
+.fc .calendar-holiday-day {
+    background-color: rgba(231, 29, 54, 0.08) !important;
+}
+
+.fc .calendar-holiday {
+    background-color: var(--danger) !important;
+    border-color: var(--danger) !important;
+    color: #fff !important;
+}
+
 /* General Layout Responsive Adjustments */
 @media (max-width: 992px) {
     .sidebar {

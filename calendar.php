@@ -30,6 +30,19 @@ include 'header.php';
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('full-calendar');
+        var holidayEvents = [
+            { title: 'Holiday: Republic Day', start: '2026-01-26', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+            { title: 'Holiday: Maharashtra Day', start: '2026-05-01', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+            { title: 'Holiday: Independence Day', start: '2026-08-15', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+            { title: 'Holiday: Gandhi Jayanti', start: '2026-10-02', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } },
+            { title: 'Holiday: Christmas Day', start: '2026-12-25', allDay: true, color: '#dc3545', classNames: ['calendar-holiday'], extendedProps: { type: 'holiday' } }
+        ];
+        var holidayDates = holidayEvents.map(function(event) { return event.start; });
+        var formatCalendarDate = function(date) {
+            var month = String(date.getMonth() + 1).padStart(2, '0');
+            var day = String(date.getDate()).padStart(2, '0');
+            return date.getFullYear() + '-' + month + '-' + day;
+        };
         var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             headerToolbar: {
@@ -38,8 +51,24 @@ include 'header.php';
                 right: 'dayGridMonth,timeGridWeek,timeGridDay'
             },
             themeSystem: 'standard',
-            events: 'get_calendar_events.php', // Fetches JSON events
+            eventSources: [
+                'get_calendar_events.php',
+                holidayEvents
+            ],
+            dayCellClassNames: function(info) {
+                var classes = [];
+                if (info.date.getDay() === 0) {
+                    classes.push('calendar-sunday');
+                }
+                if (holidayDates.indexOf(formatCalendarDate(info.date)) !== -1) {
+                    classes.push('calendar-holiday-day');
+                }
+                return classes;
+            },
             eventClick: function(info) {
+                if (info.event.extendedProps.type === 'holiday') {
+                    return;
+                }
                 // Determine whether it's a meeting or a task
                 if (info.event.extendedProps.type === 'meeting') {
                     // Redirect to meetings page or show modal
