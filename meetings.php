@@ -109,6 +109,141 @@ foreach ($meetings as $m) {
         </div>
     <?php endif; ?>
 
+    <style>
+        .meetings-search-card {
+            border-radius: 1rem;
+            box-shadow: 0 18px 50px rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+        .meetings-search-card .table thead th {
+            background: #0b5ed7;
+            color: #ffffff;
+            border-bottom: 0;
+            letter-spacing: .03em;
+        }
+        .meetings-search-card .table-striped tbody tr:nth-of-type(odd) {
+            background-color: #f8fbff;
+        }
+        .meetings-search-card .table-hover tbody tr:hover {
+            background-color: #e8f0ff;
+        }
+        .meetings-search-card .form-control {
+            border-radius: 0.95rem;
+        }
+        .meetings-search-card .input-group-text {
+            border-radius: 0.95rem 0 0 0.95rem;
+            background: #eef4ff;
+            border-color: #dbe5ff;
+            color: #0b5ed7;
+        }
+        .meetings-search-card .btn-view {
+            color: #0b5ed7;
+            border-color: #0b5ed7;
+        }
+        .meetings-search-card .btn-view:hover {
+            background: rgba(11, 94, 215, 0.08);
+        }
+        .meetings-search-card .btn-room {
+            background: #0dcaf0;
+            border-color: #0dcaf0;
+            color: #ffffff;
+        }
+        .meetings-search-card .btn-room:hover {
+            background: #0aa2c7;
+        }
+        .meetings-search-card .btn-mom {
+            color: #0d6efd;
+            border-color: #0d6efd;
+        }
+        .meetings-search-card .btn-mom:hover {
+            background: rgba(13, 110, 253, 0.08);
+        }
+        .meetings-search-card .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.35rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .meetings-search-card .status-upcoming {
+            background: #e7f5ff;
+            color: #0b5ed7;
+        }
+        .meetings-search-card .status-past {
+            background: #f8f9fa;
+            color: #495057;
+        }
+    </style>
+
+    <div class="card meetings-search-card mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-column flex-md-row align-items-start align-items-md-center justify-content-between gap-3 mb-4">
+                <div>
+                    <h2 class="h4 mb-1 fw-bold">Meeting Directory</h2>
+                    <p class="text-muted mb-0">Quickly search and review all scheduled and past meetings in one place.</p>
+                </div>
+                <div class="w-100 w-md-50">
+                    <label class="form-label visually-hidden" for="meetingSearch">Search Meetings</label>
+                    <div class="input-group search-input shadow-sm">
+                        <span class="input-group-text"><i data-lucide="search" style="width: 18px; height: 18px;"></i></span>
+                        <input id="meetingSearch" type="search" class="form-control" placeholder="Search by title, organizer, committee or agenda" onkeyup="filterMeetingTable()">
+                    </div>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-striped table-hover align-middle mb-0" id="meetingsTable">
+                    <thead>
+                        <tr>
+                            <th scope="col">Title</th>
+                            <th scope="col">Organizer</th>
+                            <th scope="col">Committee</th>
+                            <th scope="col">Date & Time</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($meetings as $m): ?>
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold text-dark"><?php echo sanitize($m['title']); ?></div>
+                                    <div class="text-muted small"><?php echo sanitize(substr($m['agenda'], 0, 75)); ?><?php echo strlen($m['agenda']) > 75 ? '…' : ''; ?></div>
+                                </td>
+                                <td><?php echo sanitize($m['organizer']); ?></td>
+                                <td><?php echo sanitize($m['committee_name'] ?: 'General'); ?></td>
+                                <td><?php echo date('d M Y, h:i A', strtotime($m['date_time'])); ?></td>
+                                <td>
+                                    <span class="status-chip <?php echo strtotime($m['date_time']) >= time() ? 'status-upcoming' : 'status-past'; ?>">
+                                        <i data-lucide="clock" style="width: 14px; height: 14px;"></i>
+                                        <?php echo strtotime($m['date_time']) >= time() ? 'Upcoming' : 'Past'; ?>
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <button type="button" class="btn btn-sm btn-outline-secondary btn-view me-2" onclick="showMeetingDetails(<?php echo htmlspecialchars(json_encode($m)); ?>)">
+                                        <i data-lucide="eye" class="me-1" style="width: 14px; height: 14px;"></i>View
+                                    </button>
+                                    <?php if (!empty($m['room_link'])): ?>
+                                        <a href="room.php?id=<?php echo $m['id']; ?>" class="btn btn-sm btn-room me-2">
+                                            <i data-lucide="video" class="me-1" style="width: 14px; height: 14px;"></i>Room
+                                        </a>
+                                    <?php endif; ?>
+                                    <?php if ($m['creator_id'] == $user_id || $role === 'coordinator' || $role === 'admin'): ?>
+                                        <button type="button" class="btn btn-sm btn-outline-primary btn-mom" onclick="openMOMEditor(<?php echo $m['id']; ?>, <?php echo htmlspecialchars(json_encode($m['mom'])); ?>)">
+                                            <i data-lucide="file-signature" class="me-1" style="width: 14px; height: 14px;"></i>MOM
+                                        </button>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <!-- Upcoming Meetings Column -->
         <div class="col-lg-6 mb-4">
@@ -349,6 +484,17 @@ foreach ($meetings as $m) {
         
         const modal = new bootstrap.Modal(document.getElementById('meetingDetailsModal'));
         modal.show();
+    }
+
+    function filterMeetingTable() {
+        const filter = document.getElementById('meetingSearch').value.toLowerCase();
+        const rows = document.querySelectorAll('#meetingsTable tbody tr');
+
+        rows.forEach(row => {
+            const text = row.innerText.toLowerCase();
+            const match = text.includes(filter);
+            row.style.display = match ? '' : 'none';
+        });
     }
 </script>
 
