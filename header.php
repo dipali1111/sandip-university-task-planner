@@ -7,6 +7,7 @@ $user_id = $_SESSION['user_id'];
 $user_name = $_SESSION['user_name'];
 $user_role = $_SESSION['role'];
 $user_email = $_SESSION['email'];
+$lang = $_COOKIE['site_lang'] ?? 'en';
 
 // Get notifications
 $noti_stmt = $pdo->prepare("SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 8");
@@ -55,15 +56,22 @@ $theme = $_SESSION['theme'] ?? ($_COOKIE['theme'] ?? '');
                     <div class="header-search">
                         <form action="tasks.php" method="GET">
                             <i data-lucide="search"></i>
-                            <input type="text" name="search" placeholder="Search tasks, meetings...">
+                            <input type="text" name="search" placeholder="Search tasks, meetings..." data-i18n="searchPlaceholder">
                         </form>
                     </div>
                 </div>
 
                 <div class="header-right">
+                    <!-- Language Switch -->
+                    <div class="language-switch-container">
+                        <button class="language-switch-btn" id="lang-toggle" type="button" aria-label="Toggle language">
+                            <span id="lang-label"><?php echo strtoupper($lang); ?></span>
+                        </button>
+                    </div>
+
                     <!-- Notification Bell -->
                     <div class="notification-bell-container">
-                        <button class="notification-bell-btn" id="noti-toggle">
+                        <button class="notification-bell-btn" id="noti-toggle" type="button" aria-label="Notifications">
                             <i data-lucide="bell"></i>
                             <?php if ($unread_count > 0): ?>
                                 <span class="notification-badge"><?php echo $unread_count; ?></span>
@@ -71,14 +79,14 @@ $theme = $_SESSION['theme'] ?? ($_COOKIE['theme'] ?? '');
                         </button>
                         <div class="notification-dropdown" id="noti-dropdown">
                             <div class="notification-dropdown-header">
-                                <span>Notifications</span>
+                                <span data-i18n="notifications">Notifications</span>
                                 <?php if ($unread_count > 0): ?>
-                                    <a href="alerts.php?action=mark_all_read" class="text-decoration-none text-warning font-size-11" style="font-size: 11px;">Mark all read</a>
+                                    <a href="alerts.php?action=mark_all_read" class="text-decoration-none text-warning font-size-11" style="font-size: 11px;" data-i18n="markAllRead">Mark all read</a>
                                 <?php endif; ?>
                             </div>
                             <div class="notification-list">
                                 <?php if (empty($notifications)): ?>
-                                    <div class="p-3 text-center text-muted font-size-12" style="font-size: 12px;">No notifications</div>
+                                    <div class="p-3 text-center text-muted font-size-12" style="font-size: 12px;" data-i18n="noNotifications">No notifications</div>
                                 <?php else: ?>
                                     <?php foreach ($notifications as $n): ?>
                                         <div class="notification-item <?php echo $n['is_read'] == 0 ? 'unread' : ''; ?>">
@@ -89,7 +97,7 @@ $theme = $_SESSION['theme'] ?? ($_COOKIE['theme'] ?? '');
                                 <?php endif; ?>
                             </div>
                             <div class="p-2 border-top text-center">
-                                <a href="alerts.php" class="text-decoration-none text-primary" style="font-size: 12px;">View all notifications</a>
+                                <a href="alerts.php" class="text-decoration-none text-primary" style="font-size: 12px;" data-i18n="viewAllNotifications">View all notifications</a>
                             </div>
                         </div>
                     </div>

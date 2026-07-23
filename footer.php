@@ -111,6 +111,60 @@
             });
         }
 
+        // Language Switch Toggle
+        const langToggle = document.getElementById('lang-toggle');
+        const langLabel = document.getElementById('lang-label');
+        const translations = {
+            en: {
+                searchPlaceholder: 'Search tasks, meetings...',
+                notifications: 'Notifications',
+                markAllRead: 'Mark all read',
+                viewAllNotifications: 'View all notifications',
+                noNotifications: 'No notifications'
+            },
+            hi: {
+                searchPlaceholder: 'कार्य, मीटिंग खोजें...',
+                notifications: 'अधिसूचनाएँ',
+                markAllRead: 'सभी पढ़ें',
+                viewAllNotifications: 'सभी अधिसूचनाएँ देखें',
+                noNotifications: 'कोई अधिसूचना नहीं'
+            }
+        };
+
+        let currentLang = '<?php echo $lang; ?>';
+
+        const applyLanguage = (lang) => {
+            currentLang = lang;
+            document.body.dataset.lang = lang;
+            if (langLabel) {
+                langLabel.textContent = lang === 'hi' ? 'HI' : 'EN';
+            }
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[lang] && translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+
+            const searchInput = document.querySelector('input[name="search"]');
+            if (searchInput && translations[lang]) {
+                searchInput.placeholder = translations[lang].searchPlaceholder;
+            }
+
+            document.cookie = 'site_lang=' + lang + '; path=/; max-age=31536000';
+        };
+
+        applyLanguage(currentLang);
+
+        if (langToggle) {
+            langToggle.addEventListener('click', function() {
+                const nextLang = currentLang === 'hi' ? 'en' : 'hi';
+                applyLanguage(nextLang);
+                langToggle.setAttribute('aria-label', nextLang === 'hi' ? 'Switch to English' : 'Switch to Hindi');
+            });
+        }
+
         // Notification Bell Toggle
         const notiToggle = document.getElementById('noti-toggle');
         const notiDropdown = document.getElementById('noti-dropdown');

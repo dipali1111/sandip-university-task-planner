@@ -163,7 +163,29 @@ body {
 .header-right {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 16px;
+}
+
+.language-switch-container {
+    display: flex;
+    align-items: center;
+}
+
+.language-switch-btn {
+    border: 1px solid var(--border-color);
+    background: var(--card-light);
+    color: var(--text-dark);
+    border-radius: 999px;
+    padding: 7px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.language-switch-btn:hover {
+    background: rgba(15, 43, 92, 0.08);
 }
 
 /* Notification Bell Dropdown */
