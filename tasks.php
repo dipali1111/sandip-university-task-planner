@@ -11,33 +11,69 @@ $search = $_GET['search'] ?? '';
 $filter_priority = $_GET['priority'] ?? '';
 $filter_status = $_GET['status'] ?? '';
 
-// Handle Task status update (Faculty action)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'update_status') {
-    $task_id = filter_input(INPUT_POST, 'task_id', FILTER_VALIDATE_INT);
-    $new_status = $_POST['status'] ?? '';
-    
-    if ($task_id && in_array($new_status, ['todo', 'in_progress', 'review', 'completed'])) {
-        // Verify assignee or permission
-        $check_stmt = $pdo->prepare("SELECT * FROM tasks WHERE id = ?");
-        $check_stmt->execute([$task_id]);
-        $task = $check_stmt->fetch();
+// Handle Task status update (Faculty action) and task deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'update_status') {
+        $task_id = filter_input(INPUT_POST, 'task_id', FILTER_VALIDATE_INT);
+        $new_status = $_POST['status'] ?? '';
         
-        if ($task && ($task['assignee_id'] == $user_id || $role === 'dean' || $role === 'admin')) {
-            $update_stmt = $pdo->prepare("UPDATE tasks SET status = ? WHERE id = ?");
-            $update_stmt->execute([$new_status, $task_id]);
+        if ($task_id && in_array($new_status, ['todo', 'in_progress', 'review', 'completed'])) {
+            // Verify assignee or permission
+            $check_stmt = $pdo->prepare("SELECT * FROM tasks WHERE id = ?");
+            $check_stmt->execute([$task_id]);
+            $task = $check_stmt->fetch();
             
-            // Notify assigner
-            $msg = $_SESSION['user_name'] . " updated task status to " . str_replace('_', ' ', $new_status) . ": " . $task['title'];
-            add_notification($pdo, $task['assigner_id'], $msg);
+            if ($task && ($task['assignee_id'] == $user_id || $role === 'dean' || $role === 'admin')) {
+                $update_stmt = $pdo->prepare("UPDATE tasks SET status = ? WHERE id = ?");
+                $update_stmt->execute([$new_status, $task_id]);
+                
+                // Notify assigner
+                $msg = $_SESSION['user_name'] . " updated task status to " . str_replace('_', ' ', $new_status) . ": " . $task['title'];
+                add_notification($pdo, $task['assigner_id'], $msg);
+                
+                $success_msg = "Task status updated successfully!";
+            }
+        }
+    } elseif ($_POST['action'] === 'delete_task') {
+        $task_id = filter_input(INPUT_POST, 'task_id', FILTER_VALIDATE_INT);
+        if ($task_id) {
+            $check_stmt = $pdo->prepare("SELECT * FROM tasks WHERE id = ?");
+            $check_stmt->execute([$task_id]);
+            $task = $check_stmt->fetch();
             
-            $success_msg = "Task status updated successfully!";
+            if ($task && ($task['assigner_id'] == $user_id || $role === 'dean' || $role === 'admin')) {
+                $delete_stmt = $pdo->prepare("DELETE FROM tasks WHERE id = ?");
+                $delete_stmt->execute([$task_id]);
+                
+                if ($delete_stmt->rowCount()) {
+                    $success_msg = "Task deleted successfully.";
+                    if ($task['assignee_id'] && $task['assignee_id'] !== $user_id) {
+                        add_notification($pdo, $task['assignee_id'], $_SESSION['user_name'] . " deleted a task assigned to you: " . $task['title']);
+                    }
+                }
+            }
+        }
+    } elseif ($_POST['action'] === 'send_reminder') {
+        $task_id = filter_input(INPUT_POST, 'task_id', FILTER_VALIDATE_INT);
+        if ($task_id) {
+            $check_stmt = $pdo->prepare("SELECT * FROM tasks WHERE id = ?");
+            $check_stmt->execute([$task_id]);
+            $task = $check_stmt->fetch();
+
+            if ($task && $role === 'admin') {
+                $message = "Reminder: please review/update the assigned task '" . $task['title'] . "' due " . date('d M Y', strtotime($task['due_date'])) . ".";
+                add_notification($pdo, $task['assignee_id'], $message);
+                $success_msg = "Reminder notification sent to the assigned faculty.";
+            }
         }
     }
 }
 
-// Fetch faculties for task assignment dropdown
-$faculty_stmt = $pdo->prepare("SELECT id, name FROM users WHERE role = 'faculty' AND department_id = ?");
-$faculty_stmt->execute([$dept_id]);
+// Fetch branches and faculties for task assignment modal
+$departments_stmt = $pdo->query("SELECT id, name FROM departments ORDER BY name");
+$departments = $departments_stmt->fetchAll();
+
+$faculty_stmt = $pdo->query("SELECT id, name, department_id FROM users WHERE role = 'faculty' ORDER BY department_id, name");
 $faculties = $faculty_stmt->fetchAll();
 
 // Build Query based on search and filters
@@ -208,6 +244,20 @@ foreach ($tasks as $t) {
                                                 <?php else: ?>
                                                     <span class="text-muted font-size-12" style="font-size: 12px;">Assigned by <?php echo sanitize($t['assigner_name']); ?></span>
                                                 <?php endif; ?>
+                                                <?php if ($t['assigner_id'] == $user_id || $role === 'dean' || $role === 'admin'): ?>
+                                                    <form action="tasks.php" method="POST" class="d-inline ms-1">
+                                                        <input type="hidden" name="action" value="delete_task">
+                                                        <input type="hidden" name="task_id" value="<?php echo $t['id']; ?>">
+                                                        <button type="submit" class="btn btn-sm btn-danger py-1 px-2 font-size-10" onclick="return confirm('Delete this task?');">Delete</button>
+                                                    </form>
+                                                <?php endif; ?>
+                                                <?php if ($role === 'admin'): ?>
+                                                    <form action="tasks.php" method="POST" class="d-inline ms-1">
+                                                        <input type="hidden" name="action" value="send_reminder">
+                                                        <input type="hidden" name="task_id" value="<?php echo $t['id']; ?>">
+                                                        <button type="submit" class="btn btn-sm btn-outline-primary py-1 px-2 font-size-10">Reminder</button>
+                                                    </form>
+                                                <?php endif; ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -369,14 +419,25 @@ foreach ($tasks as $t) {
                             <input type="date" name="due_date" class="form-control" required value="<?php echo date('Y-m-d', strtotime('+7 days')); ?>">
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label font-size-13 font-weight-600">Assign To (Faculty)</label>
-                        <select name="assignee_id" class="form-select" required>
-                            <option value="">-- Choose Faculty Member --</option>
-                            <?php foreach ($faculties as $fac): ?>
-                                <option value="<?php echo $fac['id']; ?>"><?php echo sanitize($fac['name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label font-size-13 font-weight-600">Branch / Department</label>
+                            <select id="branchSelect" class="form-select" required>
+                                <option value="">-- Choose Branch --</option>
+                                <?php foreach ($departments as $dept): ?>
+                                    <option value="<?php echo $dept['id']; ?>"><?php echo sanitize($dept['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label font-size-13 font-weight-600">Assign To (Faculty)</label>
+                            <select name="assignee_id" id="facultySelect" class="form-select" required>
+                                <option value="">-- Choose Faculty Member --</option>
+                                <?php foreach ($faculties as $fac): ?>
+                                    <option value="<?php echo $fac['id']; ?>" data-department-id="<?php echo $fac['department_id']; ?>"><?php echo sanitize($fac['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer" style="border-top: 1px solid var(--border-color);">
@@ -391,5 +452,29 @@ foreach ($tasks as $t) {
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var branchSelect = document.getElementById('branchSelect');
+        var facultySelect = document.getElementById('facultySelect');
+
+        if (branchSelect && facultySelect) {
+            branchSelect.addEventListener('change', function() {
+                var selectedBranch = this.value;
+                var options = facultySelect.querySelectorAll('option[data-department-id]');
+
+                facultySelect.value = '';
+                options.forEach(function(option) {
+                    if (!selectedBranch || option.dataset.departmentId === selectedBranch) {
+                        option.hidden = false;
+                        option.disabled = false;
+                    } else {
+                        option.hidden = true;
+                        option.disabled = true;
+                    }
+                });
+            });
+        }
+    });
+</script>
 
 <?php include 'footer.php'; ?>
