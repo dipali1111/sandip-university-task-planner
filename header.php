@@ -36,7 +36,10 @@ $unread_count = $unread_stmt->fetchColumn();
     <!-- FullCalendar -->
     <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js"></script>
 </head>
-<body class="<?php echo isset($_SESSION['theme']) && $_SESSION['theme'] === 'dark' ? 'dark-theme' : ''; ?>">
+<?php
+$theme = $_SESSION['theme'] ?? ($_COOKIE['theme'] ?? '');
+?>
+<body class="<?php echo $theme === 'dark' ? 'dark-theme' : ''; ?>">
     <div id="app-container">
         
         <?php include 'sidebar.php'; ?>
