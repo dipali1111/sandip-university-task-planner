@@ -3,6 +3,17 @@
 require_once 'config.php';
 check_login();
 
+try {
+    $check_col = $pdo->query("SHOW COLUMNS FROM documents LIKE 'category'");
+    if ($check_col->rowCount() === 0) {
+        $pdo->exec("ALTER TABLE documents ADD COLUMN category VARCHAR(50) NOT NULL DEFAULT 'general'");
+    }
+} catch (PDOException $e) {
+    // Ignore if the table is not ready yet; the upload flow will continue with a default category.
+}
+
+$allowed_categories = ['general', 'task', 'meeting', 'report', 'policy', 'training'];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['doc_file'])) {
     $file = $_FILES['doc_file'];
     
@@ -54,9 +65,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['doc_file'])) {
             $task_id = !empty($_POST['task_id']) ? (int)$_POST['task_id'] : null;
             $meeting_id = !empty($_POST['meeting_id']) ? (int)$_POST['meeting_id'] : null;
             $uploaded_by = $_SESSION['user_id'];
+            $category = $_POST['document_category'] ?? 'general';
+            if (!in_array($category, $allowed_categories, true)) {
+                $category = 'general';
+            }
 
-            $insert_stmt = $pdo->prepare("INSERT INTO documents (filename, filepath, uploaded_by, version, task_id, meeting_id) VALUES (?, ?, ?, ?, ?, ?)");
-            $insert_stmt->execute([$filename, $db_filepath, $uploaded_by, $version, $task_id, $meeting_id]);
+            $insert_stmt = $pdo->prepare("INSERT INTO documents (filename, filepath, uploaded_by, version, task_id, meeting_id, category) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $insert_stmt->execute([$filename, $db_filepath, $uploaded_by, $version, $task_id, $meeting_id, $category]);
 
             header('Location: documents.php?msg=uploaded');
             exit;

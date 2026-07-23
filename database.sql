@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS documents (
     version INT DEFAULT 1,
     task_id INT,
     meeting_id INT,
+    category VARCHAR(50) NOT NULL DEFAULT 'general',
     FOREIGN KEY (uploaded_by) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL,
     FOREIGN KEY (meeting_id) REFERENCES meetings(id) ON DELETE SET NULL
