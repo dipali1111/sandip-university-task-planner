@@ -2,6 +2,7 @@
 // departments.php - Department & Committee Roster Manager
 require_once 'config.php';
 include 'header.php';
+check_login();
 
 $user_id = $_SESSION['user_id'];
 $role = $_SESSION['role'];
@@ -26,9 +27,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// Fetch all departments
+// Fetch all departments with workload statistics
 try {
-    $depts_stmt = $pdo->query("SELECT d.*, COUNT(u.id) as staff_count FROM departments d LEFT JOIN users u ON d.id = u.department_id GROUP BY d.id");
+    $depts_stmt = $pdo->query("SELECT d.*, 
+        COUNT(u.id) as staff_count,
+        COALESCE(SUM(IF(t.status <> 'completed', 1, 0)), 0) as pending_tasks,
+        COALESCE(SUM(IF(t.status = 'completed', 1, 0)), 0) as completed_tasks
+        FROM departments d
+        LEFT JOIN users u ON d.id = u.department_id
+        LEFT JOIN tasks t ON u.id = t.assignee_id
+        GROUP BY d.id");
     $departments = $depts_stmt->fetchAll();
 } catch (PDOException $e) {
     $departments = [];
